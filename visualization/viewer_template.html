@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fly Adaptation Viewer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --panel-2: #eef1ed;
+      --ink: #1b1f1d;
+      --muted: #64706a;
+      --line: #d7ddd7;
+      --world: #101713;
+      --grid: #26352e;
+      --food: #57b95a;
+      --agent: #e26d3f;
+      --sensor: #2b8ea3;
+      --motor: #c2871e;
+      --good: #2d8a46;
+      --bad: #b44a3d;
+      --focus: #1f6f78;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(190px, 1fr) auto minmax(220px, 1fr);
+      gap: 16px;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .episode-controls {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto 36px minmax(220px, 420px) 36px minmax(160px, 1fr);
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .episode-controls[hidden] {
+      display: none;
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .segment-button {
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-right: 0;
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .segment-button:first-child {
+      border-radius: 6px 0 0 6px;
+    }
+
+    .segment-button:last-child {
+      border-right: 1px solid var(--line);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .segment-button.active {
+      border-color: var(--focus);
+      background: #e4f0f0;
+      color: #155b63;
+      font-weight: 700;
+    }
+
+    .segment-button:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .episode-select {
+      width: 100%;
+      min-width: 0;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 10px;
+    }
+
+    .episode-summary {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .icon-button:hover {
+      border-color: var(--focus);
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .timeline input {
+      width: 100%;
+    }
+
+    .frame-label {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(360px, 1fr) 300px;
+      gap: 14px;
+      width: 100%;
+      min-width: 0;
+      padding: 14px;
+      min-height: 0;
+    }
+
+    .panel,
+    .world-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .panel-header h2 {
+      min-width: 0;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.2;
+      text-transform: uppercase;
+      color: #35413c;
+    }
+
+    .panel-header .frame-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .panel-body {
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .world-panel {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      background: var(--world);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 460px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+    }
+
+    #worldCanvas {
+      height: 100%;
+      min-height: 460px;
+    }
+
+    .world-readout {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(90px, 1fr));
+      gap: 1px;
+      background: #223028;
+      border-top: 1px solid #2c4035;
+    }
+
+    .readout-item {
+      padding: 10px 12px;
+      background: #151f1a;
+      color: #f3f5ef;
+      min-width: 0;
+    }
+
+    .readout-item span {
+      display: block;
+      color: #9eada4;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .readout-item strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 17px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #metricsCanvas,
+    #diagnosticCanvas,
+    #brainCanvas {
+      height: 210px;
+      border: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    #brainCanvas {
+      height: 190px;
+    }
+
+    #diagnosticCanvas { height: 180px; }
+    #diagnosticSection[hidden] { display: none; }
+
+    .diagnostic-legend {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 86px 1fr 46px;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .bar-label,
+    .bar-value {
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      position: relative;
+      height: 10px;
+      background: #e4e9e3;
+      border: 1px solid #d5ddd4;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      background: var(--sensor);
+    }
+
+    .motor .bar-fill {
+      background: var(--motor);
+    }
+
+    .section-title {
+      margin: 16px 0 8px;
+      color: #35413c;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .speed-control {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 10px;
+      align-items: center;
+      min-width: 150px;
+    }
+
+    .speed-control span {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1080px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-wrap,
+      #worldCanvas {
+        min-height: 420px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 8px;
+      }
+
+      .layout > * {
+        width: 100%;
+        max-width: calc(100vw - 16px);
+      }
+
+      .topbar {
+        padding: 10px;
+      }
+
+      .topbar > * {
+        width: 100%;
+        max-width: calc(100vw - 20px);
+      }
+
+      .world-readout,
+      .stat-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .controls {
+        flex-wrap: wrap;
+      }
+
+      .timeline {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .episode-controls {
+        grid-template-columns: 36px minmax(0, 1fr) 36px;
+        overflow: hidden;
+      }
+
+      .segmented-control,
+      .episode-summary {
+        grid-column: 1 / -1;
+      }
+
+      .segmented-control {
+        width: 100%;
+      }
+
+      .segment-button {
+        width: 0;
+        flex: 1 1 0;
+        padding: 6px 4px;
+        font-size: 12px;
+        line-height: 1.2;
+        white-space: normal;
+      }
+
+      .episode-select {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Fly Adaptation Viewer</h1>
+        <p id="runSummary">find_food</p>
+      </div>
+      <div class="controls" aria-label="Playback controls">
+        <button class="icon-button" id="resetButton" title="Reset" aria-label="Reset">&#8634;</button>
+        <button class="icon-button" id="prevButton" title="Previous step" aria-label="Previous step">&#9664;</button>
+        <button class="icon-button" id="playButton" title="Play or pause" aria-label="Play or pause">&#10074;&#10074;</button>
+        <button class="icon-button" id="nextButton" title="Next step" aria-label="Next step">&#9654;</button>
+        <label class="speed-control">
+          <span>Speed</span>
+          <input id="speedInput" type="range" min="0.25" max="4" value="1" step="0.25">
+        </label>
+      </div>
+      <label class="timeline">
+        <input id="frameInput" type="range" min="0" max="0" value="0">
+        <span class="frame-label" id="frameLabel">0 / 0</span>
+      </label>
+      <div class="episode-controls" id="episodeControls" hidden>
+        <div class="segmented-control" aria-label="Episode result filter">
+          <button class="segment-button active" type="button" data-episode-filter="all" aria-pressed="true">All</button>
+          <button class="segment-button" type="button" data-episode-filter="success" aria-pressed="false">Success</button>
+          <button class="segment-button" type="button" data-episode-filter="failure" aria-pressed="false">Failure</button>
+        </div>
+        <button class="icon-button" id="prevEpisodeButton" type="button" title="Previous episode" aria-label="Previous episode">&#8592;</button>
+        <select class="episode-select" id="episodeSelect" aria-label="Holdout episode"></select>
+        <button class="icon-button" id="nextEpisodeButton" type="button" title="Next episode" aria-label="Next episode">&#8594;</button>
+        <span class="episode-summary" id="episodeSummary"></span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Evolution</h2>
+          <span class="frame-label" id="generationLabel">generation 0</span>
+        </div>
+        <div class="panel-body">
+          <div class="stat-grid">
+            <div class="stat">
+              <span>Best score</span>
+              <strong id="bestScore">0.00</strong>
+            </div>
+            <div class="stat">
+              <span>Eat rate</span>
+              <strong id="eatRate">0%</strong>
+            </div>
+            <div class="stat">
+              <span>Population</span>
+              <strong id="population">0</strong>
+            </div>
+            <div class="stat">
+              <span>Hidden</span>
+              <strong id="hiddenCount">0</strong>
+            </div>
+          </div>
+          <canvas id="metricsCanvas"></canvas>
+          <div id="diagnosticSection" hidden>
+            <div class="section-title">Balanced validation</div>
+            <canvas id="diagnosticCanvas"></canvas>
+            <p class="diagnostic-legend" id="diagnosticLegend"></p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="world-panel">
+        <div class="canvas-wrap">
+          <canvas id="worldCanvas"></canvas>
+        </div>
+        <div class="world-readout">
+          <div class="readout-item">
+            <span>Step</span>
+            <strong id="stepValue">0</strong>
+          </div>
+          <div class="readout-item">
+            <span>Score</span>
+            <strong id="scoreValue">0.00</strong>
+          </div>
+          <div class="readout-item">
+            <span>Distance</span>
+            <strong id="distanceValue">0.00</strong>
+          </div>
+          <div class="readout-item">
+            <span>Status</span>
+            <strong id="statusValue">searching</strong>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Brain</h2>
+          <span class="frame-label" id="brainShape">0 -> 0 -> 0</span>
+        </div>
+        <div class="panel-body">
+          <canvas id="brainCanvas"></canvas>
+          <div class="section-title">Sensors</div>
+          <div class="bar-list" id="sensorBars"></div>
+          <div class="section-title">Motors</div>
+          <div class="bar-list" id="motorBars"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const RUN_DATA = __RUN_DATA_JSON__;
+    const episodes = Array.isArray(RUN_DATA.episodes) && RUN_DATA.episodes.length > 0
+      ? RUN_DATA.episodes
+      : [RUN_DATA.episode];
+    const metrics = RUN_DATA.metrics || [];
+    const diagnostics = RUN_DATA.diagnostics || [];
+    const sensorLabels = RUN_DATA.experiment === "choose_target"
+      ? [
+          "A sin angle", "A cos angle", "A distance",
+          "B sin angle", "B cos angle", "B distance",
+          "target cue", "cue visible", "bias",
+        ]
+      : [
+          "sin angle", "cos angle", "distance", "agent x", "agent y", "bias",
+          "wall left", "wall front", "wall right",
+        ];
+    const motorLabels = ["turn left", "turn right", "move"];
+
+    const worldCanvas = document.getElementById("worldCanvas");
+    const metricsCanvas = document.getElementById("metricsCanvas");
+    const diagnosticCanvas = document.getElementById("diagnosticCanvas");
+    const diagnosticSection = document.getElementById("diagnosticSection");
+    const diagnosticLegend = document.getElementById("diagnosticLegend");
+    const brainCanvas = document.getElementById("brainCanvas");
+    const frameInput = document.getElementById("frameInput");
+    const frameLabel = document.getElementById("frameLabel");
+    const playButton = document.getElementById("playButton");
+    const speedInput = document.getElementById("speedInput");
+    const sensorBars = document.getElementById("sensorBars");
+    const motorBars = document.getElementById("motorBars");
+    const episodeControls = document.getElementById("episodeControls");
+    const episodeSelect = document.getElementById("episodeSelect");
+    const prevEpisodeButton = document.getElementById("prevEpisodeButton");
+    const nextEpisodeButton = document.getElementById("nextEpisodeButton");
+    const episodeSummary = document.getElementById("episodeSummary");
+
+    let episodePosition = 0;
+    let episode = episodes[episodePosition];
+    let trace = episode.trace || [];
+    let episodeFilter = "all";
+    let frameIndex = 0;
+    let playing = true;
+    let lastTick = 0;
+
+    frameInput.max = String(Math.max(0, trace.length - 1));
+    document.getElementById("population").textContent = RUN_DATA.config.evolution.population_size;
+    document.getElementById("hiddenCount").textContent = RUN_DATA.brain.hidden_size;
+    document.getElementById("brainShape").textContent =
+      `${RUN_DATA.brain.input_size} -> ${RUN_DATA.brain.hidden_size} -> ${RUN_DATA.brain.output_size}`;
+
+    createBars(sensorBars, sensorLabels, "sensor");
+    createBars(motorBars, motorLabels, "motor");
+    updateEpisodeControls();
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      frameIndex = 0;
+      playing = false;
+      render();
+    });
+
+    document.getElementById("prevButton").addEventListener("click", () => {
+      frameIndex = Math.max(0, frameIndex - 1);
+      playing = false;
+      render();
+    });
+
+    document.getElementById("nextButton").addEventListener("click", () => {
+      frameIndex = Math.min(Math.max(0, trace.length - 1), frameIndex + 1);
+      playing = false;
+      render();
+    });
+
+    playButton.addEventListener("click", () => {
+      playing = !playing;
+      playButton.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
+      playButton.setAttribute("aria-label", playing ? "Pause" : "Play");
+    });
+
+    frameInput.addEventListener("input", () => {
+      frameIndex = Number(frameInput.value);
+      playing = false;
+      playButton.innerHTML = "&#9658;";
+      render();
+    });
+
+    document.querySelectorAll("[data-episode-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextFilter = button.dataset.episodeFilter;
+        const positions = filteredEpisodePositions(nextFilter);
+        if (positions.length === 0) {
+          return;
+        }
+        episodeFilter = nextFilter;
+        selectEpisode(positions.includes(episodePosition) ? episodePosition : positions[0]);
+      });
+    });
+
+    episodeSelect.addEventListener("change", () => {
+      selectEpisode(Number(episodeSelect.value));
+    });
+
+    prevEpisodeButton.addEventListener("click", () => {
+      const positions = filteredEpisodePositions(episodeFilter);
+      const current = positions.indexOf(episodePosition);
+      if (current > 0) {
+        selectEpisode(positions[current - 1]);
+      }
+    });
+
+    nextEpisodeButton.addEventListener("click", () => {
+      const positions = filteredEpisodePositions(episodeFilter);
+      const current = positions.indexOf(episodePosition);
+      if (current >= 0 && current < positions.length - 1) {
+        selectEpisode(positions[current + 1]);
+      }
+    });
+
+    function filteredEpisodePositions(filter) {
+      return episodes
+        .map((item, position) => ({ item, position }))
+        .filter(({ item }) => (
+          filter === "all"
+          || (filter === "success" && item.ate_food)
+          || (filter === "failure" && !item.ate_food)
+        ))
+        .map(({ position }) => position);
+    }
+
+    function selectEpisode(position) {
+      if (!Number.isInteger(position) || position < 0 || position >= episodes.length) {
+        return;
+      }
+      episodePosition = position;
+      episode = episodes[episodePosition];
+      trace = episode.trace || [];
+      frameIndex = 0;
+      frameInput.max = String(Math.max(0, trace.length - 1));
+      playing = false;
+      lastTick = 0;
+      updateEpisodeControls();
+      render();
+    }
+
+    function roomOrientationLabel(item) {
+      const obstacle = item?.obstacles?.[0];
+      if (!obstacle) {
+        return "";
+      }
+      const width = obstacle.x_max - obstacle.x_min;
+      const height = obstacle.y_max - obstacle.y_min;
+      return height > width ? "vertical wall" : "horizontal wall";
+    }
+
+    function isTargetChoiceEpisode(item) {
+      return Array.isArray(item?.targets) && item.targets.length > 1;
+    }
+
+    function episodeOutcomeLabel(item) {
+      if (!isTargetChoiceEpisode(item)) {
+        return item.ate_food ? "food found" : "not found";
+      }
+      if (item.chose_correct) {
+        return `correct ${item.choice}`;
+      }
+      return item.choice ? `wrong ${item.choice}` : "no choice";
+    }
+
+    function episodeContextLabel(item) {
+      if (isTargetChoiceEpisode(item)) {
+        return `cue ${item.trace?.[0]?.cue_target || "?"}`;
+      }
+      return roomOrientationLabel(item);
+    }
+
+    function updateEpisodeControls() {
+      const successCount = episodes.filter((item) => item.ate_food).length;
+      const failureCount = episodes.length - successCount;
+      const counts = {
+        all: episodes.length,
+        success: successCount,
+        failure: failureCount,
+      };
+      const labels = { all: "All", success: "Success", failure: "Failure" };
+      const checkpoint = RUN_DATA.selected_generation === null || RUN_DATA.selected_generation === undefined
+        ? ""
+        : ` | checkpoint ${RUN_DATA.selected_generation + 1}/${metrics.length}`;
+      document.getElementById("runSummary").textContent = episodes.length > 1
+        ? `${RUN_DATA.experiment} | ${metrics.length} generations${checkpoint} | ${successCount}/${episodes.length} holdout success`
+        : `${RUN_DATA.experiment} | ${metrics.length} generations${checkpoint}`;
+
+      episodeControls.hidden = episodes.length <= 1;
+      if (episodes.length <= 1) {
+        return;
+      }
+
+      document.querySelectorAll("[data-episode-filter]").forEach((button) => {
+        const filter = button.dataset.episodeFilter;
+        const active = filter === episodeFilter;
+        button.textContent = `${labels[filter]} (${counts[filter]})`;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+        button.disabled = counts[filter] === 0;
+      });
+
+      const positions = filteredEpisodePositions(episodeFilter);
+      episodeSelect.innerHTML = "";
+      positions.forEach((position) => {
+        const item = episodes[position];
+        const option = document.createElement("option");
+        option.value = String(position);
+        option.textContent = `Episode ${item.index + 1} | ${episodeContextLabel(item)} | seed ${item.seed} | ${episodeOutcomeLabel(item)}`;
+        episodeSelect.appendChild(option);
+      });
+      episodeSelect.value = String(episodePosition);
+
+      const visibleIndex = positions.indexOf(episodePosition);
+      prevEpisodeButton.disabled = visibleIndex <= 0;
+      nextEpisodeButton.disabled = visibleIndex < 0 || visibleIndex >= positions.length - 1;
+      const successLabel = isTargetChoiceEpisode(episode) ? "correct" : "found";
+      episodeSummary.textContent =
+        `Selected ${episode.index + 1}/${episodes.length} | ${episodeContextLabel(episode)} | ${successCount} ${successLabel} | seed ${episode.seed}`;
+    }
+
+    function createBars(container, labels, className) {
+      container.innerHTML = "";
+      labels.forEach((label) => {
+        const row = document.createElement("div");
+        row.className = `bar-row ${className}`;
+        row.innerHTML = `
+          <span class="bar-label"></span>
+          <span class="bar-track"><span class="bar-fill"></span></span>
+          <span class="bar-value">0.00</span>
+        `;
+        row.querySelector(".bar-label").textContent = label;
+        container.appendChild(row);
+      });
+    }
+
+    function fitCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * ratio));
+      const height = Math.max(1, Math.floor(rect.height * ratio));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      return { width, height, ratio };
+    }
+
+    function worldToCanvas(x, y, width, height) {
+      const size = RUN_DATA.config.world.size;
+      const pad = 34;
+      const scale = Math.min((width - pad * 2) / size, (height - pad * 2) / size);
+      const cx = width / 2 + x * scale;
+      const cy = height / 2 - y * scale;
+      return { x: cx, y: cy, scale };
+    }
+
+    function drawWorld() {
+      const { width, height } = fitCanvas(worldCanvas);
+      const ctx = worldCanvas.getContext("2d");
+      const frame = trace[frameIndex] || trace[0];
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#101713";
+      ctx.fillRect(0, 0, width, height);
+      drawGrid(ctx, width, height);
+
+      const size = RUN_DATA.config.world.size;
+      const topLeft = worldToCanvas(-size / 2, size / 2, width, height);
+      const bottomRight = worldToCanvas(size / 2, -size / 2, width, height);
+      ctx.strokeStyle = "#597064";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+
+      drawObstacles(ctx, width, height);
+      drawTrail(ctx, width, height);
+      drawTargets(ctx, frame, width, height);
+      drawSensorLine(ctx, frame, width, height);
+      drawAgent(ctx, frame, width, height);
+      drawCue(ctx, frame, width);
+    }
+
+    function drawObstacles(ctx, width, height) {
+      (episode.obstacles || []).forEach((obstacle) => {
+        const topLeft = worldToCanvas(obstacle.x_min, obstacle.y_max, width, height);
+        const bottomRight = worldToCanvas(obstacle.x_max, obstacle.y_min, width, height);
+        ctx.fillStyle = "#65736b";
+        ctx.strokeStyle = "#b6c2ba";
+        ctx.lineWidth = 2;
+        ctx.fillRect(
+          topLeft.x,
+          topLeft.y,
+          bottomRight.x - topLeft.x,
+          bottomRight.y - topLeft.y,
+        );
+        ctx.strokeRect(
+          topLeft.x,
+          topLeft.y,
+          bottomRight.x - topLeft.x,
+          bottomRight.y - topLeft.y,
+        );
+      });
+    }
+
+    function drawGrid(ctx, width, height) {
+      const size = RUN_DATA.config.world.size;
+      ctx.strokeStyle = "#26352e";
+      ctx.lineWidth = 1;
+      for (let i = -size / 2; i <= size / 2 + 0.001; i += 1) {
+        const a = worldToCanvas(i, -size / 2, width, height);
+        const b = worldToCanvas(i, size / 2, width, height);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+
+        const c = worldToCanvas(-size / 2, i, width, height);
+        const d = worldToCanvas(size / 2, i, width, height);
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(d.x, d.y);
+        ctx.stroke();
+      }
+    }
+
+    function drawTrail(ctx, width, height) {
+      if (frameIndex <= 0) {
+        return;
+      }
+      ctx.strokeStyle = "#dfd18b";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      for (let i = 0; i <= frameIndex; i += 1) {
+        const point = worldToCanvas(trace[i].agent_x, trace[i].agent_y, width, height);
+        if (i === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      }
+      ctx.stroke();
+    }
+
+    function drawFood(ctx, frame, width, height) {
+      const point = worldToCanvas(frame.food_x, frame.food_y, width, height);
+      const eaten = episode.ate_food && frameIndex >= trace.length - 1;
+      const foodVisible = frame.food_visible !== false;
+      ctx.fillStyle = eaten ? "#9fd869" : "#57b95a";
+      ctx.shadowColor = "rgba(87, 185, 90, 0.7)";
+      ctx.shadowBlur = foodVisible ? (eaten ? 22 : 12) : 0;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+      if (foodVisible) {
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#d7f2be";
+      ctx.lineWidth = 2;
+      if (!foodVisible) {
+        ctx.setLineDash([5, 5]);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawTargets(ctx, frame, width, height) {
+      if (!isTargetChoiceEpisode(episode)) {
+        drawFood(ctx, frame, width, height);
+        return;
+      }
+      episode.targets.forEach((target) => {
+        const point = worldToCanvas(target.x, target.y, width, height);
+        const selected = frameIndex >= trace.length - 1 && episode.choice === target.label;
+        const correctChoice = selected && episode.chose_correct;
+        ctx.fillStyle = target.label === "A" ? "#2b9eb3" : "#d49a32";
+        ctx.strokeStyle = selected
+          ? correctChoice ? "#a8e27e" : "#e45a62"
+          : "#edf4ef";
+        ctx.lineWidth = selected ? 5 : 2;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#0f1713";
+        ctx.font = "bold 13px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(target.label, point.x, point.y);
+      });
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+    }
+
+    function drawCue(ctx, frame, width) {
+      if (!isTargetChoiceEpisode(episode)) {
+        return;
+      }
+      ctx.fillStyle = frame.cue_visible ? "#d49a32" : "#87938c";
+      ctx.font = "bold 14px Segoe UI";
+      ctx.textAlign = "right";
+      ctx.fillText(
+        frame.cue_visible ? `CUE ${frame.cue_target}` : "CUE HIDDEN",
+        width - 18,
+        24,
+      );
+      ctx.textAlign = "start";
+    }
+
+    function drawSensorLine(ctx, frame, width, height) {
+      if (isTargetChoiceEpisode(episode)) {
+        const agent = worldToCanvas(frame.agent_x, frame.agent_y, width, height);
+        episode.targets.forEach((target) => {
+          const point = worldToCanvas(target.x, target.y, width, height);
+          ctx.strokeStyle = target.label === "A"
+            ? "rgba(43, 158, 179, 0.5)"
+            : "rgba(212, 154, 50, 0.5)";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([8, 8]);
+          ctx.beginPath();
+          ctx.moveTo(agent.x, agent.y);
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        return;
+      }
+      if (frame.food_visible === false) {
+        return;
+      }
+      const agent = worldToCanvas(frame.agent_x, frame.agent_y, width, height);
+      const food = worldToCanvas(frame.food_x, frame.food_y, width, height);
+      ctx.strokeStyle = "rgba(43, 142, 163, 0.65)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(agent.x, agent.y);
+      ctx.lineTo(food.x, food.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawAgent(ctx, frame, width, height) {
+      const point = worldToCanvas(frame.agent_x, frame.agent_y, width, height);
+      const radius = 15;
+      ctx.save();
+      ctx.translate(point.x, point.y);
+      ctx.rotate(-frame.heading);
+      ctx.fillStyle = frame.collided ? "#d94a55" : "#e26d3f";
+      ctx.strokeStyle = "#ffe6d4";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(radius + 5, 0);
+      ctx.lineTo(-radius, -radius * 0.72);
+      ctx.lineTo(-radius * 0.55, 0);
+      ctx.lineTo(-radius, radius * 0.72);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawMetrics() {
+      const { width, height } = fitCanvas(metricsCanvas);
+      const ctx = metricsCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+      if (metrics.length === 0) {
+        return;
+      }
+      const pad = 28;
+      const scores = metrics.flatMap((m) => [m.best_score, m.average_score]);
+      const minScore = Math.min(...scores);
+      const maxScore = Math.max(...scores);
+      drawChartLine(ctx, metrics.map((m) => m.average_score), minScore, maxScore, pad, width, height, "#8fa097", 2);
+      drawChartLine(ctx, metrics.map((m) => m.best_score), minScore, maxScore, pad, width, height, "#2d8a46", 3);
+      ctx.fillStyle = "#64706a";
+      ctx.font = `${12 * (window.devicePixelRatio || 1)}px Segoe UI`;
+      ctx.fillText("avg", pad, height - 9);
+      ctx.fillStyle = "#2d8a46";
+      ctx.fillText("best", pad + 42, height - 9);
+    }
+
+    function drawDiagnosticMetrics() {
+      diagnosticSection.hidden = diagnostics.length === 0;
+      if (diagnostics.length === 0) {
+        return;
+      }
+      const { width, height } = fitCanvas(diagnosticCanvas);
+      const ctx = diagnosticCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+      const pad = 24;
+      const targetChoice = diagnostics.some((item) => Number.isFinite(item.cue_a_success_rate));
+      const multiWall = diagnostics.some((item) => Number.isFinite(item.all_walls_crossed_rate));
+      const crossedField = multiWall ? "all_walls_crossed_rate" : "wall_cross_rate";
+      if (targetChoice) {
+        drawChartLine(ctx, diagnostics.map((item) => item.overall_success_rate), 0, 1, pad, width, height, "#2d8a46", 3);
+        drawChartLine(ctx, diagnostics.map((item) => item.pair_alignment), 0, 1, pad, width, height, "#435f73", 3);
+        drawChartLine(ctx, diagnostics.map((item) => item.cue_a_success_rate), 0, 1, pad, width, height, "#2b8ea3", 2);
+        drawChartLine(ctx, diagnostics.map((item) => item.cue_b_success_rate), 0, 1, pad, width, height, "#d49a32", 2);
+        drawChartLine(ctx, diagnostics.map((item) => item.worst_category_success_rate), 0, 1, pad, width, height, "#7656a4", 2);
+        drawChartLine(ctx, diagnostics.map((item) => item.wrong_choice_rate), 0, 1, pad, width, height, "#b44a3d", 2);
+      } else {
+        drawChartLine(ctx, diagnostics.map((item) => item.vertical_eat_rate), 0, 1, pad, width, height, "#2d8a46", 3);
+        drawChartLine(ctx, diagnostics.map((item) => item.horizontal_eat_rate), 0, 1, pad, width, height, "#2b8ea3", 3);
+        if (multiWall) {
+          drawChartLine(ctx, diagnostics.map((item) => item.aligned_eat_rate), 0, 1, pad, width, height, "#7656a4", 2);
+          drawChartLine(ctx, diagnostics.map((item) => item.alternating_eat_rate), 0, 1, pad, width, height, "#d06b32", 2);
+        }
+        drawChartLine(ctx, diagnostics.map((item) => item[crossedField]), 0, 1, pad, width, height, "#c2871e", 2);
+        drawChartLine(ctx, diagnostics.map((item) => item.stuck_rate), 0, 1, pad, width, height, "#b44a3d", 2);
+      }
+      const latest = diagnostics[diagnostics.length - 1];
+      const selected = RUN_DATA.selected_generation === null || RUN_DATA.selected_generation === undefined
+        ? latest
+        : diagnostics.find((item) => item.generation === RUN_DATA.selected_generation) || latest;
+      if (RUN_DATA.selected_generation !== null && RUN_DATA.selected_generation !== undefined) {
+        const index = Math.max(0, diagnostics.indexOf(selected));
+        const x = pad + (index / Math.max(1, diagnostics.length - 1)) * (width - pad * 2);
+        ctx.save();
+        ctx.strokeStyle = "#35413c";
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, height - pad);
+        ctx.stroke();
+        ctx.restore();
+      }
+      diagnosticLegend.textContent = targetChoice
+        ? `selected g${selected.generation + 1} | overall ${Math.round(selected.overall_success_rate * 100)}% | cue A ${Math.round(selected.cue_a_success_rate * 100)}% | cue B ${Math.round(selected.cue_b_success_rate * 100)}% | alignment ${Math.round(selected.pair_alignment * 100)}% | contrast ${Math.round(selected.pair_contrast_rate * 100)}% | worst sector ${Math.round(selected.worst_category_success_rate * 100)}% | wrong ${Math.round(selected.wrong_choice_rate * 100)}% | no choice ${Math.round(selected.no_choice_rate * 100)}%`
+        : multiWall
+        ? `selected g${selected.generation + 1} | vertical ${Math.round(selected.vertical_eat_rate * 100)}% | horizontal ${Math.round(selected.horizontal_eat_rate * 100)}% | same ${Math.round(selected.aligned_eat_rate * 100)}% | zigzag ${Math.round(selected.alternating_eat_rate * 100)}% | crossed both ${Math.round(selected[crossedField] * 100)}% | stuck ${Math.round(selected.stuck_rate * 100)}%`
+        : `selected g${selected.generation + 1} | vertical ${Math.round(selected.vertical_eat_rate * 100)}% | horizontal ${Math.round(selected.horizontal_eat_rate * 100)}% | crossed ${Math.round(selected[crossedField] * 100)}% | stuck ${Math.round(selected.stuck_rate * 100)}%`;
+    }
+
+    function drawChartLine(ctx, values, minValue, maxValue, pad, width, height, color, lineWidth) {
+      const spread = Math.max(1e-6, maxValue - minValue);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      values.forEach((value, index) => {
+        const x = pad + (index / Math.max(1, values.length - 1)) * (width - pad * 2);
+        const y = height - pad - ((value - minValue) / spread) * (height - pad * 2);
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    function drawBrain() {
+      const { width, height } = fitCanvas(brainCanvas);
+      const ctx = brainCanvas.getContext("2d");
+      const frame = trace[frameIndex] || trace[0];
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+      if (!frame || frame.hidden.length === 0) {
+        return;
+      }
+
+      const count = frame.hidden.length;
+      const cols = Math.ceil(Math.sqrt(count));
+      const rows = Math.ceil(count / cols);
+      const gap = 3 * (window.devicePixelRatio || 1);
+      const pad = 12 * (window.devicePixelRatio || 1);
+      const cell = Math.floor(Math.min(
+        (width - pad * 2 - gap * (cols - 1)) / cols,
+        (height - pad * 2 - gap * (rows - 1)) / rows,
+      ));
+
+      frame.hidden.forEach((value, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const x = pad + col * (cell + gap);
+        const y = pad + row * (cell + gap);
+        ctx.fillStyle = activationColor(value);
+        ctx.fillRect(x, y, cell, cell);
+      });
+    }
+
+    function activationColor(value) {
+      const clamped = Math.max(-1, Math.min(1, value));
+      if (clamped >= 0) {
+        const t = clamped;
+        return mixColor([239, 243, 233], [226, 109, 63], t);
+      }
+      const t = Math.abs(clamped);
+      return mixColor([239, 243, 233], [43, 142, 163], t);
+    }
+
+    function mixColor(a, b, t) {
+      const r = Math.round(a[0] + (b[0] - a[0]) * t);
+      const g = Math.round(a[1] + (b[1] - a[1]) * t);
+      const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+      return `rgb(${r}, ${g}, ${bl})`;
+    }
+
+    function updateBars(container, values) {
+      [...container.children].forEach((row, index) => {
+        row.hidden = index >= values.length;
+        if (row.hidden) {
+          return;
+        }
+        const value = values[index] ?? 0;
+        const fill = row.querySelector(".bar-fill");
+        const text = row.querySelector(".bar-value");
+        const width = Math.abs(value) * 50;
+        fill.style.left = value >= 0 ? "50%" : `${50 - width}%`;
+        fill.style.width = `${width}%`;
+        text.textContent = formatNumber(value);
+      });
+    }
+
+    function updateReadouts() {
+      const frame = trace[frameIndex] || trace[0];
+      const fallback = metrics.reduce((acc, item) => item.best_score > acc.best_score ? item : acc, metrics[0] || { best_score: 0, best_eat_rate: 0, generation: 0 });
+      const best = RUN_DATA.selected_generation === null || RUN_DATA.selected_generation === undefined
+        ? fallback
+        : metrics.find((item) => item.generation === RUN_DATA.selected_generation) || fallback;
+      document.getElementById("bestScore").textContent = formatNumber(best.best_score);
+      document.getElementById("eatRate").textContent = `${Math.round(best.best_eat_rate * 100)}%`;
+      document.getElementById("generationLabel").textContent =
+        RUN_DATA.selected_generation === null || RUN_DATA.selected_generation === undefined
+          ? `generation ${best.generation}`
+          : `checkpoint ${best.generation + 1}/${metrics.length}`;
+
+      frameInput.value = String(frameIndex);
+      frameLabel.textContent = `${frameIndex} / ${Math.max(0, trace.length - 1)}`;
+      document.getElementById("stepValue").textContent = frame.step;
+      document.getElementById("scoreValue").textContent = formatNumber(frame.score);
+      document.getElementById("distanceValue").textContent = formatNumber(frame.distance);
+      document.getElementById("statusValue").textContent =
+        frame.collided
+          ? "wall collision"
+          : isTargetChoiceEpisode(episode) && frame.cue_visible
+          ? `cue ${frame.cue_target}`
+          : isTargetChoiceEpisode(episode) && frameIndex >= trace.length - 1
+          ? episodeOutcomeLabel(episode)
+          : isTargetChoiceEpisode(episode)
+          ? "cue hidden"
+          : episode.ate_food && frameIndex >= trace.length - 1
+          ? "food found"
+          : frame.food_visible === false
+            ? "food hidden"
+            : RUN_DATA.experiment === "remember_food"
+              ? "cue"
+              : "searching";
+      updateBars(sensorBars, frame.observation);
+      updateBars(motorBars, frame.output);
+    }
+
+    function formatNumber(value) {
+      return Number(value).toFixed(2);
+    }
+
+    function render() {
+      if (trace.length === 0) {
+        return;
+      }
+      playButton.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
+      drawWorld();
+      drawMetrics();
+      drawDiagnosticMetrics();
+      drawBrain();
+      updateReadouts();
+    }
+
+    function animate(time) {
+      const speed = Number(speedInput.value);
+      const frameDuration = 170 / speed;
+      if (playing && time - lastTick >= frameDuration) {
+        frameIndex += 1;
+        if (frameIndex >= trace.length) {
+          frameIndex = trace.length - 1;
+          playing = false;
+        }
+        lastTick = time;
+        render();
+      }
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", render);
+    render();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

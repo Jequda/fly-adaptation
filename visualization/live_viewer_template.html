@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Fly Evolution</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f1;
+      --panel: #ffffff;
+      --panel-alt: #edf1eb;
+      --ink: #17201b;
+      --muted: #66736c;
+      --line: #d3dbd3;
+      --world: #111914;
+      --grid: #2d4036;
+      --food: #55bd62;
+      --agent: #e47345;
+      --sensor: #278ea1;
+      --motor: #c2861d;
+      --good: #258143;
+      --focus: #176f78;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    button, input { font: inherit; }
+
+    .shell {
+      min-height: 100vh;
+      min-width: 0;
+      width: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      min-width: 0;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(210px, 1fr) minmax(260px, auto) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .brand { min-width: 0; }
+
+    .brand p {
+      margin: 4px 0 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      border: 1px solid #94b39c;
+      background: #e7f1e8;
+      color: #27613a;
+      padding: 4px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .badge.complete {
+      border-color: #86aabd;
+      background: #e5f0f5;
+      color: #1d5d79;
+    }
+
+    .status-message {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .icon-button:hover { border-color: var(--focus); }
+
+    .speed-control {
+      display: grid;
+      grid-template-columns: auto 120px;
+      align-items: center;
+      gap: 8px;
+      min-width: 185px;
+    }
+
+    .speed-control span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .speed-control input { width: 100%; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(420px, 1fr) 310px;
+      gap: 14px;
+      min-height: 0;
+      min-width: 0;
+      padding: 14px;
+      width: 100%;
+    }
+
+    .panel, .world-panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .panel { display: flex; flex-direction: column; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h2 {
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      color: #35413c;
+      font-size: 13px;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .panel-header span {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .panel-body {
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .world-panel {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 570px;
+      background: var(--world);
+    }
+
+    .world-panel .panel-header {
+      border-color: #2a3c32;
+      background: #162018;
+    }
+
+    .world-panel .panel-header h2 { color: #eaf0e8; }
+    .world-panel .panel-header span { color: #a9baaf; }
+
+    #worldCanvas {
+      display: block;
+      width: 100%;
+      height: min(62vh, 680px);
+      min-height: 470px;
+      background: var(--world);
+      cursor: pointer;
+    }
+
+    #worldCanvas.diagnostic-grid {
+      height: min(78vh, 760px);
+      min-height: 620px;
+    }
+
+    .world-readout {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(90px, 1fr));
+      gap: 1px;
+      border-top: 1px solid #2a3c32;
+      background: #2a3c32;
+    }
+
+    .readout-item {
+      min-width: 0;
+      padding: 10px 12px;
+      background: #162018;
+      color: #edf3ed;
+    }
+
+    .readout-item span {
+      display: block;
+      overflow: hidden;
+      color: #a7b9ad;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .readout-item strong {
+      display: block;
+      margin-top: 3px;
+      overflow: hidden;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--panel-alt);
+      padding: 10px;
+    }
+
+    .stat span {
+      display: block;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      font-size: 17px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #metricsCanvas, #diagnosticCanvas, #brainCanvas {
+      display: block;
+      width: 100%;
+      height: 205px;
+      border: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    #diagnosticCanvas { height: 180px; }
+    #diagnosticSection[hidden] { display: none; }
+
+    .section-title {
+      margin: 16px 0 8px;
+      color: #35413c;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .bar-list { display: grid; gap: 9px; }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr) 46px;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .bar-label, .bar-value {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-value { text-align: right; }
+
+    .bar-track {
+      position: relative;
+      height: 10px;
+      overflow: hidden;
+      border: 1px solid #d5ddd4;
+      background: #e3e9e2;
+    }
+
+    .bar-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      background: var(--sensor);
+    }
+
+    .motor .bar-fill { background: var(--motor); }
+
+    .legend {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1120px) {
+      .topbar { grid-template-columns: 1fr auto; }
+      .run-status { justify-content: flex-start; grid-column: 1 / -1; grid-row: 2; }
+      .layout { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.75fr); }
+      .world-panel { grid-column: 1 / -1; grid-row: 1; }
+    }
+
+    @media (max-width: 680px) {
+      .topbar { grid-template-columns: 1fr; padding: 10px; }
+      .controls { justify-content: flex-start; flex-wrap: wrap; }
+      .brand p, .status-message { overflow-wrap: anywhere; white-space: normal; }
+      .status-message { overflow: visible; text-overflow: clip; }
+      .run-status {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-column: auto;
+        grid-row: auto;
+        justify-content: stretch;
+        align-items: start;
+        width: 100%;
+      }
+      .layout { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+      .layout > * { max-width: calc(100vw - 16px); width: 100%; }
+      .world-panel { grid-column: auto; grid-row: 1; min-height: 500px; }
+      #worldCanvas { min-height: 400px; }
+      #worldCanvas.diagnostic-grid { height: 760px; min-height: 760px; }
+      .world-readout { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1 id="viewerTitle">Live Fly Evolution</h1>
+        <p id="runSummary">Waiting for experiment data</p>
+      </div>
+      <div class="run-status" aria-live="polite">
+        <span class="badge" id="phaseBadge">STARTING</span>
+        <span class="status-message" id="statusMessage">Connecting to the local experiment</span>
+      </div>
+      <div class="controls">
+        <button class="icon-button" id="playButton" title="Pause animation" aria-label="Pause animation">&#10074;&#10074;</button>
+        <label class="speed-control">
+          <span>Replay speed</span>
+          <input id="speedInput" type="range" min="0.25" max="4" value="1" step="0.25">
+        </label>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <div class="panel-header">
+          <h2 id="evolutionTitle">Evolution</h2>
+          <span id="generationLabel">generation 1</span>
+        </div>
+        <div class="panel-body">
+          <div class="stat-grid">
+            <div class="stat"><span>Evaluated</span><strong id="evaluatedValue">0 / 0</strong></div>
+            <div class="stat"><span>Workers</span><strong id="workersValue">0</strong></div>
+            <div class="stat"><span>Current best</span><strong id="currentBestValue">-</strong></div>
+            <div class="stat"><span>Current avg</span><strong id="currentAverageValue">-</strong></div>
+          </div>
+          <div class="section-title">Fitness by generation</div>
+          <canvas id="metricsCanvas"></canvas>
+          <p class="legend" id="metricLegend">Best and average score</p>
+          <div id="diagnosticSection" hidden>
+            <div class="section-title">Balanced validation</div>
+            <canvas id="diagnosticCanvas"></canvas>
+            <p class="legend" id="diagnosticLegend"></p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="world-panel">
+        <div class="panel-header">
+          <h2 id="worldTitle">Candidate samples</h2>
+          <span id="sampleLabel">0 completed traces</span>
+        </div>
+        <canvas id="worldCanvas" aria-label="Animated sample trajectories"></canvas>
+        <div class="world-readout">
+          <div class="readout-item"><span>Selected</span><strong id="selectedValue">-</strong></div>
+          <div class="readout-item"><span id="sourceLabel">Worker process</span><strong id="workerValue">-</strong></div>
+          <div class="readout-item"><span>Replay score</span><strong id="episodeScoreValue">-</strong></div>
+          <div class="readout-item"><span>Episode status</span><strong id="episodeStatusValue">-</strong></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Selected brain</h2>
+          <span id="brainShape">-</span>
+        </div>
+        <div class="panel-body">
+          <canvas id="brainCanvas"></canvas>
+          <div class="section-title">Sensors</div>
+          <div class="bar-list" id="sensorBars"></div>
+          <div class="section-title">Motors</div>
+          <div class="bar-list" id="motorBars"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const STATIC_STATE = __STATIC_STATE_JSON__;
+    const standardSensorLabels = [
+      "sin angle", "cos angle", "distance", "agent x", "agent y", "bias",
+      "wall left", "wall front", "wall right",
+    ];
+    const targetChoiceSensorLabels = [
+      "A sin angle", "A cos angle", "A distance",
+      "B sin angle", "B cos angle", "B distance",
+      "target cue", "cue visible", "bias",
+    ];
+    const motorLabels = ["turn left", "turn right", "move"];
+
+    const worldCanvas = document.getElementById("worldCanvas");
+    const metricsCanvas = document.getElementById("metricsCanvas");
+    const diagnosticCanvas = document.getElementById("diagnosticCanvas");
+    const diagnosticSection = document.getElementById("diagnosticSection");
+    const diagnosticLegend = document.getElementById("diagnosticLegend");
+    const brainCanvas = document.getElementById("brainCanvas");
+    const playButton = document.getElementById("playButton");
+    const speedInput = document.getElementById("speedInput");
+    const sensorBars = document.getElementById("sensorBars");
+    const motorBars = document.getElementById("motorBars");
+
+    let state = STATIC_STATE || {
+      phase: "starting",
+      message: "Connecting to the local experiment",
+      config: { evolution: { population_size: 0, generations: 0, workers: 0 }, world: { size: 10 } },
+      progress: { generation: 0, completed: 0, total: 0, workers: 0 },
+      current: { best_score: null, average_score: null, best_eat_rate: null },
+      metrics: [],
+      diagnostics: [],
+      selected_generation: null,
+      samples: [],
+      generation_leaders: [],
+      final: null,
+    };
+    let selectedId = null;
+    let playing = true;
+    let playback = 0;
+    let lastAnimationTime = 0;
+    let tileRegions = [];
+    let sensorLabelExperiment = null;
+
+    syncSensorLabels();
+    createBars(motorBars, motorLabels, "motor");
+
+    playButton.addEventListener("click", () => {
+      playing = !playing;
+      updatePlayButton();
+    });
+
+    worldCanvas.addEventListener("click", (event) => {
+      const rect = worldCanvas.getBoundingClientRect();
+      const ratio = worldCanvas.width / Math.max(1, rect.width);
+      const x = (event.clientX - rect.left) * ratio;
+      const y = (event.clientY - rect.top) * ratio;
+      const region = tileRegions.find((item) => (
+        x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height
+      ));
+      if (region) {
+        selectedId = sampleKey(region.sample);
+        render();
+      }
+    });
+
+    function createBars(container, labels, className) {
+      labels.forEach((label) => {
+        const row = document.createElement("div");
+        row.className = `bar-row ${className}`;
+        row.innerHTML = "<span class=\"bar-label\"></span><span class=\"bar-track\"><span class=\"bar-fill\"></span></span><span class=\"bar-value\">0.00</span>";
+        row.querySelector(".bar-label").textContent = label;
+        container.appendChild(row);
+      });
+    }
+
+    function syncSensorLabels() {
+      const experiment = state.experiment || "";
+      if (experiment === sensorLabelExperiment) {
+        return;
+      }
+      sensorLabelExperiment = experiment;
+      createBars(
+        sensorBars,
+        experiment === "choose_target"
+          ? targetChoiceSensorLabels
+          : standardSensorLabels,
+        "sensor",
+      );
+    }
+
+    function visibleSamples() {
+      if (state.phase === "complete" && state.final?.leaders?.length) {
+        return state.final.leaders;
+      }
+      if (state.phase === "selecting" && state.generation_leaders?.length) {
+        return state.generation_leaders;
+      }
+      if (state.phase === "diagnostic" && state.generation_leaders?.length) {
+        return state.generation_leaders;
+      }
+      return state.samples || [];
+    }
+
+    function sampleKey(sample) {
+      return String(sample.candidate_index);
+    }
+
+    function sampleTitle(sample) {
+      if (sample.metric === "diagnostic") {
+        return sample.label || `validation room ${sample.rank}`;
+      }
+      if (sample.metric === "ablation") {
+        return sample.label || `condition ${sample.rank}`;
+      }
+      if (sample.rank) {
+        return sample.label ? `#${sample.rank} ${sample.label}` : `rank #${sample.rank}`;
+      }
+      return `candidate #${sample.candidate_index}`;
+    }
+
+    function roomOrientationLabel(episode) {
+      const obstacle = episode?.obstacles?.[0];
+      if (!obstacle) {
+        return "";
+      }
+      const width = obstacle.x_max - obstacle.x_min;
+      const height = obstacle.y_max - obstacle.y_min;
+      return height > width ? "vertical wall" : "horizontal wall";
+    }
+
+    function isTargetChoiceEpisode(episode) {
+      return Array.isArray(episode?.targets) && episode.targets.length > 1;
+    }
+
+    function episodeOutcomeLabel(episode) {
+      if (!isTargetChoiceEpisode(episode)) {
+        return episode.ate_food ? "food found" : "not found";
+      }
+      if (episode.chose_correct) {
+        return `correct ${episode.choice}`;
+      }
+      return episode.choice ? `wrong ${episode.choice}` : "no choice";
+    }
+
+    function selectedSample(samples) {
+      if (samples.length === 0) {
+        return null;
+      }
+      const existing = samples.find((sample) => sampleKey(sample) === selectedId);
+      if (existing) {
+        return existing;
+      }
+      const best = samples.reduce((winner, sample) => sample.score > winner.score ? sample : winner, samples[0]);
+      selectedId = sampleKey(best);
+      return best;
+    }
+
+    function frameFor(sample, offset) {
+      const trace = sample.episode.trace || [];
+      if (trace.length === 0) {
+        return 0;
+      }
+      const holdFrames = 16;
+      const cycle = trace.length + holdFrames;
+      return Math.min(trace.length - 1, Math.floor((playback + offset * 9) % cycle));
+    }
+
+    function applyState(nextState) {
+      const oldGeneration = state.progress.generation;
+      const oldLabel = state.label;
+      const oldPhase = state.phase;
+      state = nextState;
+      const rankedViewChanged = state.phase !== oldPhase
+        && ["selecting", "diagnostic", "complete"].includes(state.phase);
+      if (state.progress.generation !== oldGeneration || state.label !== oldLabel || rankedViewChanged) {
+        playback = 0;
+        selectedId = null;
+      }
+      render();
+    }
+
+    async function poll() {
+      try {
+        const response = await fetch("/api/state", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`State request failed: ${response.status}`);
+        }
+        applyState(await response.json());
+        if (state.phase !== "complete") {
+          window.setTimeout(poll, 300);
+        }
+      } catch (_error) {
+        if (state.phase !== "complete") {
+          document.getElementById("statusMessage").textContent = "Waiting for the local experiment server";
+          window.setTimeout(poll, 1000);
+        }
+      }
+    }
+
+    function fitCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * ratio));
+      const height = Math.max(1, Math.floor(rect.height * ratio));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      return { width, height, ratio };
+    }
+
+    function render() {
+      syncSensorLabels();
+      updateHeader();
+      updateEvolution();
+      const samples = visibleSamples();
+      const selected = selectedSample(samples);
+      drawWorld(samples, selected);
+      drawMetrics();
+      drawDiagnosticMetrics();
+      drawBrain(selected, samples);
+      updateReadout(selected, samples);
+    }
+
+    function updateHeader() {
+      document.getElementById("viewerTitle").textContent = STATIC_STATE
+        ? "Fly Evolution Results"
+        : "Live Fly Evolution";
+      const badge = document.getElementById("phaseBadge");
+      badge.textContent = state.phase.toUpperCase();
+      badge.className = state.phase === "complete" ? "badge complete" : "badge";
+      document.getElementById("statusMessage").textContent = state.message;
+      const config = state.config.evolution;
+      const label = state.label ? `${state.label} | ` : "";
+      document.getElementById("runSummary").textContent =
+        `${label}${config.population_size} brains, ${config.generations} generations, ${state.progress.workers} worker processes`;
+      updatePlayButton();
+    }
+
+    function updatePlayButton() {
+      playButton.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
+      playButton.title = playing ? "Pause animation" : "Play animation";
+      playButton.setAttribute("aria-label", playing ? "Pause animation" : "Play animation");
+    }
+
+    function updateEvolution() {
+      const progress = state.progress;
+      const config = state.config.evolution;
+      const summaryMetrics = new Set(
+        (state.final?.leaders || []).map((sample) => sample.metric),
+      );
+      const ablationSummary = state.phase === "complete"
+        && summaryMetrics.has("ablation");
+      const comparison = state.phase === "complete"
+        && (summaryMetrics.has("holdout") || summaryMetrics.has("ablation"));
+      document.getElementById("evolutionTitle").textContent = comparison
+        ? ablationSummary
+          ? "Full brain evolution"
+          : STATIC_STATE ? "Best run evolution" : "Last training run"
+        : "Evolution";
+      document.getElementById("metricLegend").textContent = comparison
+        ? ablationSummary
+          ? "Training fitness history for full"
+          : STATIC_STATE
+          ? "Training fitness history for rank #1"
+          : "Fitness history for the last condition"
+        : "Best and average score";
+      const shownGeneration = Math.min(config.generations, progress.generation + 1);
+      document.getElementById("generationLabel").textContent = `generation ${shownGeneration} / ${config.generations}`;
+      document.getElementById("evaluatedValue").textContent = `${progress.completed} / ${progress.total}`;
+      document.getElementById("workersValue").textContent = progress.workers;
+      document.getElementById("currentBestValue").textContent = formatNumber(state.current.best_score);
+      document.getElementById("currentAverageValue").textContent = formatNumber(state.current.average_score);
+    }
+
+    function drawWorld(samples, selected) {
+      worldCanvas.classList.toggle(
+        "diagnostic-grid",
+        samples.some((sample) => sample.metric === "diagnostic"),
+      );
+      const { width, height, ratio } = fitCanvas(worldCanvas);
+      const ctx = worldCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#111914";
+      ctx.fillRect(0, 0, width, height);
+      tileRegions = [];
+
+      if (samples.length === 0) {
+        ctx.fillStyle = "#a9baaf";
+        ctx.font = `${14 * ratio}px Segoe UI`;
+        ctx.textAlign = "center";
+        ctx.fillText("Waiting for completed candidate traces", width / 2, height / 2);
+        ctx.textAlign = "start";
+        return;
+      }
+
+      const visible = samples.slice(0, 8);
+      const columns = visible.length >= 7 && width > 700 * ratio
+        ? 4
+        : visible.length === 1 ? 1 : 2;
+      const rows = Math.ceil(visible.length / columns);
+      const gap = 10 * ratio;
+      const tileWidth = (width - gap * (columns + 1)) / columns;
+      const tileHeight = (height - gap * (rows + 1)) / rows;
+
+      visible.forEach((sample, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const region = {
+          x: gap + column * (tileWidth + gap),
+          y: gap + row * (tileHeight + gap),
+          width: tileWidth,
+          height: tileHeight,
+          sample,
+        };
+        tileRegions.push(region);
+        drawWorldTile(ctx, region, frameFor(sample, index), sampleKey(sample) === selectedId, ratio);
+      });
+    }
+
+    function drawWorldTile(ctx, region, frameIndex, isSelected, ratio) {
+      const trace = region.sample.episode.trace || [];
+      if (trace.length === 0) {
+        return;
+      }
+      const frame = trace[frameIndex];
+      const origin = trace[0];
+      const border = isSelected ? "#e3c66c" : "#426052";
+      const pad = 38 * ratio;
+      const size = state.config.world.size || 10;
+      const scale = Math.min((region.width - pad * 2) / size, (region.height - pad * 2) / size);
+      const centerX = region.x + region.width / 2;
+      const centerY = region.y + region.height / 2;
+      const point = (x, y) => ({ x: centerX + x * scale, y: centerY - y * scale });
+      const edge = point(-size / 2, size / 2);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(region.x, region.y, region.width, region.height);
+      ctx.clip();
+      ctx.fillStyle = "#142019";
+      ctx.fillRect(region.x, region.y, region.width, region.height);
+      ctx.strokeStyle = "#2d4036";
+      ctx.lineWidth = ratio;
+      for (let value = -size / 2; value <= size / 2 + 0.001; value += 1) {
+        const verticalA = point(value, -size / 2);
+        const verticalB = point(value, size / 2);
+        const horizontalA = point(-size / 2, value);
+        const horizontalB = point(size / 2, value);
+        ctx.beginPath();
+        ctx.moveTo(verticalA.x, verticalA.y);
+        ctx.lineTo(verticalB.x, verticalB.y);
+        ctx.moveTo(horizontalA.x, horizontalA.y);
+        ctx.lineTo(horizontalB.x, horizontalB.y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1.5 * ratio;
+      ctx.strokeRect(edge.x, edge.y, size * scale, size * scale);
+
+      (region.sample.episode.obstacles || []).forEach((obstacle) => {
+        const topLeft = point(obstacle.x_min, obstacle.y_max);
+        const bottomRight = point(obstacle.x_max, obstacle.y_min);
+        ctx.fillStyle = "#65736b";
+        ctx.strokeStyle = "#b6c2ba";
+        ctx.lineWidth = ratio;
+        ctx.fillRect(
+          topLeft.x,
+          topLeft.y,
+          bottomRight.x - topLeft.x,
+          bottomRight.y - topLeft.y,
+        );
+        ctx.strokeRect(
+          topLeft.x,
+          topLeft.y,
+          bottomRight.x - topLeft.x,
+          bottomRight.y - topLeft.y,
+        );
+      });
+
+      if (frameIndex > 0) {
+        ctx.strokeStyle = "#dfd18b";
+        ctx.lineWidth = 2 * ratio;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let index = 0; index <= frameIndex; index += 1) {
+          const trailPoint = point(trace[index].agent_x, trace[index].agent_y);
+          if (index === 0) {
+            ctx.moveTo(trailPoint.x, trailPoint.y);
+          } else {
+            ctx.lineTo(trailPoint.x, trailPoint.y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      const foodRadius = Math.max(5 * ratio, Math.min(10 * ratio, scale * 0.22));
+      const targetChoice = isTargetChoiceEpisode(region.sample.episode);
+      const foodVisible = targetChoice || frame.food_visible !== false;
+      if (targetChoice) {
+        region.sample.episode.targets.forEach((target) => {
+          const targetPoint = point(target.x, target.y);
+          const selected = frameIndex >= trace.length - 1
+            && region.sample.episode.choice === target.label;
+          const correctChoice = selected && region.sample.episode.chose_correct;
+          ctx.fillStyle = target.label === "A" ? "#2b9eb3" : "#d49a32";
+          ctx.strokeStyle = selected
+            ? correctChoice ? "#a8e27e" : "#e45a62"
+            : "#edf4ef";
+          ctx.lineWidth = (selected ? 3 : 1) * ratio;
+          ctx.beginPath();
+          ctx.arc(targetPoint.x, targetPoint.y, foodRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#0f1713";
+          ctx.font = `bold ${10 * ratio}px Segoe UI`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(target.label, targetPoint.x, targetPoint.y);
+        });
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = frame.cue_visible ? "#d49a32" : "#87938c";
+        ctx.font = `bold ${10 * ratio}px Segoe UI`;
+        ctx.fillText(
+          frame.cue_visible ? `CUE ${frame.cue_target}` : "CUE HIDDEN",
+          region.x + region.width - 92 * ratio,
+          region.y + 16 * ratio,
+        );
+      } else {
+        const food = point(origin.food_x, origin.food_y);
+        ctx.fillStyle = region.sample.episode.ate_food && frameIndex >= trace.length - 1 ? "#9fd869" : "#55bd62";
+        ctx.beginPath();
+        ctx.arc(food.x, food.y, foodRadius, 0, Math.PI * 2);
+        if (foodVisible) {
+          ctx.fill();
+        }
+        ctx.strokeStyle = "#d8f4be";
+        ctx.lineWidth = ratio;
+        if (!foodVisible) {
+          ctx.setLineDash([4 * ratio, 4 * ratio]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      const agent = point(frame.agent_x, frame.agent_y);
+      const radius = Math.max(7 * ratio, Math.min(12 * ratio, scale * 0.25));
+      ctx.save();
+      ctx.translate(agent.x, agent.y);
+      ctx.rotate(-frame.heading);
+      ctx.fillStyle = frame.collided ? "#d94a55" : "#e47345";
+      ctx.strokeStyle = "#ffe6d4";
+      ctx.lineWidth = ratio;
+      ctx.beginPath();
+      ctx.moveTo(radius + 3 * ratio, 0);
+      ctx.lineTo(-radius, -radius * 0.7);
+      ctx.lineTo(-radius * 0.5, 0);
+      ctx.lineTo(-radius, radius * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      const title = sampleTitle(region.sample);
+      const metricName = region.sample.metric === "ablation"
+        ? "holdout"
+        : region.sample.metric;
+      const metricDetail = region.sample.metric === "diagnostic"
+        ? `score ${formatNumber(region.sample.score)} | ${episodeOutcomeLabel(region.sample.episode)}`
+        : region.sample.rank
+          ? `${metricName} ${formatNumber(region.sample.score)} | eat ${formatPercent(region.sample.eat_rate)}`
+          : `process ${region.sample.worker_pid} | fitness ${formatNumber(region.sample.score)}`;
+      const orientation = roomOrientationLabel(region.sample.episode);
+      const detail = region.sample.metric === "diagnostic"
+        ? metricDetail
+        : orientation ? `${orientation} | ${metricDetail}` : metricDetail;
+      ctx.fillStyle = "#e7efe9";
+      ctx.font = `${11 * ratio}px Segoe UI`;
+      ctx.fillText(title, region.x + 9 * ratio, region.y + 16 * ratio, region.width - 18 * ratio);
+      ctx.fillStyle = foodVisible ? "#a7df9b" : "#dfd18b";
+      ctx.fillText(detail, region.x + 9 * ratio, region.y + 32 * ratio, region.width - 18 * ratio);
+      ctx.restore();
+    }
+
+    function drawMetrics() {
+      const { width, height, ratio } = fitCanvas(metricsCanvas);
+      const ctx = metricsCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+
+      const points = (state.metrics || []).map((metric) => ({
+        generation: metric.generation,
+        best_score: metric.best_score,
+        average_score: metric.average_score,
+      }));
+      if (state.current.average_score !== null) {
+        points.push({
+          generation: state.progress.generation,
+          best_score: state.current.best_score,
+          average_score: state.current.average_score,
+        });
+      }
+      if (points.length === 0) {
+        ctx.fillStyle = "#66736c";
+        ctx.font = `${12 * ratio}px Segoe UI`;
+        ctx.fillText("Scores appear after the first candidate finishes", 16 * ratio, 28 * ratio);
+        return;
+      }
+
+      const values = points.flatMap((point) => [point.best_score, point.average_score]).filter(Number.isFinite);
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+      const pad = 28 * ratio;
+      const totalGenerations = Math.max(1, state.config.evolution.generations - 1);
+      drawSeries(ctx, points, "average_score", minValue, maxValue, totalGenerations, pad, width, height, "#8fa097", 2 * ratio);
+      drawSeries(ctx, points, "best_score", minValue, maxValue, totalGenerations, pad, width, height, "#258143", 3 * ratio);
+      ctx.font = `${11 * ratio}px Segoe UI`;
+      ctx.fillStyle = "#66736c";
+      ctx.fillText("average", pad, height - 8 * ratio);
+      ctx.fillStyle = "#258143";
+      ctx.fillText("best", pad + 54 * ratio, height - 8 * ratio);
+    }
+
+    function drawDiagnosticMetrics() {
+      const diagnostics = state.diagnostics || [];
+      diagnosticSection.hidden = diagnostics.length === 0;
+      if (diagnostics.length === 0) {
+        return;
+      }
+      const { width, height, ratio } = fitCanvas(diagnosticCanvas);
+      const ctx = diagnosticCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+      const pad = 24 * ratio;
+      const totalGenerations = Math.max(1, state.config.evolution.generations - 1);
+      const targetChoice = diagnostics.some((item) => Number.isFinite(item.cue_a_success_rate));
+      const multiWall = diagnostics.some((item) => Number.isFinite(item.all_walls_crossed_rate));
+      const crossedField = multiWall ? "all_walls_crossed_rate" : "wall_cross_rate";
+      if (targetChoice) {
+        drawSeries(ctx, diagnostics, "overall_success_rate", 0, 1, totalGenerations, pad, width, height, "#258143", 3 * ratio);
+        drawSeries(ctx, diagnostics, "pair_alignment", 0, 1, totalGenerations, pad, width, height, "#435f73", 3 * ratio);
+        drawSeries(ctx, diagnostics, "cue_a_success_rate", 0, 1, totalGenerations, pad, width, height, "#278ea1", 2 * ratio);
+        drawSeries(ctx, diagnostics, "cue_b_success_rate", 0, 1, totalGenerations, pad, width, height, "#d49a32", 2 * ratio);
+        drawSeries(ctx, diagnostics, "worst_category_success_rate", 0, 1, totalGenerations, pad, width, height, "#7656a4", 2 * ratio);
+        drawSeries(ctx, diagnostics, "wrong_choice_rate", 0, 1, totalGenerations, pad, width, height, "#b44a3d", 2 * ratio);
+      } else {
+        drawSeries(ctx, diagnostics, "vertical_eat_rate", 0, 1, totalGenerations, pad, width, height, "#258143", 3 * ratio);
+        drawSeries(ctx, diagnostics, "horizontal_eat_rate", 0, 1, totalGenerations, pad, width, height, "#278ea1", 3 * ratio);
+        if (multiWall) {
+          drawSeries(ctx, diagnostics, "aligned_eat_rate", 0, 1, totalGenerations, pad, width, height, "#7656a4", 2 * ratio);
+          drawSeries(ctx, diagnostics, "alternating_eat_rate", 0, 1, totalGenerations, pad, width, height, "#d06b32", 2 * ratio);
+        }
+        drawSeries(ctx, diagnostics, crossedField, 0, 1, totalGenerations, pad, width, height, "#c2861d", 2 * ratio);
+        drawSeries(ctx, diagnostics, "stuck_rate", 0, 1, totalGenerations, pad, width, height, "#b44a3d", 2 * ratio);
+      }
+      const latest = diagnostics[diagnostics.length - 1];
+      const selected = state.selected_generation === null || state.selected_generation === undefined
+        ? latest
+        : diagnostics.find((item) => item.generation === state.selected_generation) || latest;
+      if (state.selected_generation !== null && state.selected_generation !== undefined) {
+        const x = pad + (selected.generation / totalGenerations) * (width - pad * 2);
+        ctx.save();
+        ctx.strokeStyle = "#35413c";
+        ctx.lineWidth = ratio;
+        ctx.setLineDash([4 * ratio, 4 * ratio]);
+        ctx.beginPath();
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, height - pad);
+        ctx.stroke();
+        ctx.restore();
+      }
+      diagnosticLegend.textContent = targetChoice
+        ? `selected g${selected.generation + 1} | overall ${formatPercent(selected.overall_success_rate)} | cue A ${formatPercent(selected.cue_a_success_rate)} | cue B ${formatPercent(selected.cue_b_success_rate)} | alignment ${formatPercent(selected.pair_alignment)} | contrast ${formatPercent(selected.pair_contrast_rate)} | worst sector ${formatPercent(selected.worst_category_success_rate)} | wrong ${formatPercent(selected.wrong_choice_rate)} | no choice ${formatPercent(selected.no_choice_rate)}`
+        : multiWall
+        ? `selected g${selected.generation + 1} | vertical ${formatPercent(selected.vertical_eat_rate)} | horizontal ${formatPercent(selected.horizontal_eat_rate)} | same ${formatPercent(selected.aligned_eat_rate)} | zigzag ${formatPercent(selected.alternating_eat_rate)} | crossed both ${formatPercent(selected[crossedField])} | stuck ${formatPercent(selected.stuck_rate)}`
+        : `selected g${selected.generation + 1} | vertical ${formatPercent(selected.vertical_eat_rate)} | horizontal ${formatPercent(selected.horizontal_eat_rate)} | crossed ${formatPercent(selected[crossedField])} | stuck ${formatPercent(selected.stuck_rate)}`;
+    }
+
+    function drawSeries(ctx, points, field, minValue, maxValue, totalGenerations, pad, width, height, color, lineWidth) {
+      const spread = Math.max(0.00001, maxValue - minValue);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = pad + (point.generation / totalGenerations) * (width - pad * 2);
+        const y = height - pad - ((point[field] - minValue) / spread) * (height - pad * 2);
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    function drawBrain(selected, samples) {
+      const { width, height, ratio } = fitCanvas(brainCanvas);
+      const ctx = brainCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfa";
+      ctx.fillRect(0, 0, width, height);
+      if (!selected) {
+        ctx.fillStyle = "#66736c";
+        ctx.font = `${12 * ratio}px Segoe UI`;
+        ctx.fillText("No completed trace", 16 * ratio, 28 * ratio);
+        return;
+      }
+
+      const selectedIndex = samples.indexOf(selected);
+      const frame = selected.episode.trace[frameFor(selected, Math.max(0, selectedIndex))];
+      const hidden = frame.hidden || [];
+      if (hidden.length === 0) {
+        return;
+      }
+      const columns = Math.ceil(Math.sqrt(hidden.length));
+      const rows = Math.ceil(hidden.length / columns);
+      const gap = 3 * ratio;
+      const pad = 12 * ratio;
+      const cell = Math.floor(Math.min(
+        (width - pad * 2 - gap * (columns - 1)) / columns,
+        (height - pad * 2 - gap * (rows - 1)) / rows,
+      ));
+      hidden.forEach((value, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        ctx.fillStyle = activationColor(value);
+        ctx.fillRect(pad + column * (cell + gap), pad + row * (cell + gap), cell, cell);
+      });
+    }
+
+    function updateReadout(selected, samples) {
+      const ranked = samples.some((sample) => Boolean(sample.rank));
+      const comparison = ranked && samples.some((sample) => sample.metric === "holdout");
+      const ablation = ranked && samples.some((sample) => sample.metric === "ablation");
+      const diagnostic = samples.some((sample) => sample.metric === "diagnostic");
+      document.getElementById("worldTitle").textContent = diagnostic
+        ? "Winner on validation panel"
+        : ablation
+        ? "Paired sensor conditions"
+        : comparison
+        ? "Best comparison runs"
+        : ranked
+          ? state.phase === "complete" ? "Final top brains" : "Generation leaders"
+          : "Candidate samples";
+      document.getElementById("sampleLabel").textContent = diagnostic
+        ? `${samples.length} rooms`
+        : ablation
+        ? `${samples.length} conditions`
+        : ranked
+        ? `${samples.length} ranked replays`
+        : `${samples.length} completed traces`;
+      if (!selected) {
+        document.getElementById("selectedValue").textContent = "-";
+        document.getElementById("sourceLabel").textContent = "Worker process";
+        document.getElementById("workerValue").textContent = "-";
+        document.getElementById("episodeScoreValue").textContent = "-";
+        document.getElementById("episodeStatusValue").textContent = "-";
+        document.getElementById("brainShape").textContent = "-";
+        updateBars(sensorBars, []);
+        updateBars(motorBars, []);
+        return;
+      }
+
+      const selectedIndex = samples.indexOf(selected);
+      const frame = selected.episode.trace[frameFor(selected, Math.max(0, selectedIndex))];
+      document.getElementById("selectedValue").textContent = sampleTitle(selected);
+      document.getElementById("sourceLabel").textContent = selected.metric === "diagnostic"
+        ? "Validation result"
+        : selected.metric === "ablation"
+        ? "Holdout eat rate"
+        : selected.rank
+        ? `${selected.metric} eat rate`
+        : "Worker process";
+      document.getElementById("workerValue").textContent = selected.metric === "diagnostic"
+        ? episodeOutcomeLabel(selected.episode)
+        : selected.rank
+        ? formatPercent(selected.eat_rate)
+        : selected.worker_pid;
+      document.getElementById("episodeScoreValue").textContent = formatNumber(selected.episode.score);
+      document.getElementById("episodeStatusValue").textContent =
+        frame.collided
+          ? "wall collision"
+          : isTargetChoiceEpisode(selected.episode) && frame.cue_visible
+          ? `cue ${frame.cue_target}`
+          : isTargetChoiceEpisode(selected.episode)
+          ? frameFor(selected, Math.max(0, selectedIndex)) >= selected.episode.trace.length - 1
+            ? episodeOutcomeLabel(selected.episode)
+            : "cue hidden"
+          : frame.food_visible === false ? "food hidden" : "food visible";
+      document.getElementById("brainShape").textContent =
+        `${frame.observation.length} -> ${frame.hidden.length} -> ${frame.output.length}`;
+      updateBars(sensorBars, frame.observation);
+      updateBars(motorBars, frame.output);
+    }
+
+    function updateBars(container, values) {
+      [...container.children].forEach((row, index) => {
+        row.hidden = index >= values.length;
+        if (row.hidden) {
+          return;
+        }
+        const value = values[index] || 0;
+        const fill = row.querySelector(".bar-fill");
+        const text = row.querySelector(".bar-value");
+        const width = Math.min(50, Math.abs(value) * 50);
+        fill.style.left = value >= 0 ? "50%" : `${50 - width}%`;
+        fill.style.width = `${width}%`;
+        text.textContent = formatNumber(value);
+      });
+    }
+
+    function activationColor(value) {
+      const clamped = Math.max(-1, Math.min(1, value));
+      if (clamped >= 0) {
+        return mixColor([239, 243, 233], [226, 109, 63], clamped);
+      }
+      return mixColor([239, 243, 233], [43, 142, 163], Math.abs(clamped));
+    }
+
+    function mixColor(from, to, amount) {
+      const red = Math.round(from[0] + (to[0] - from[0]) * amount);
+      const green = Math.round(from[1] + (to[1] - from[1]) * amount);
+      const blue = Math.round(from[2] + (to[2] - from[2]) * amount);
+      return `rgb(${red}, ${green}, ${blue})`;
+    }
+
+    function formatNumber(value) {
+      return Number.isFinite(value) ? Number(value).toFixed(2) : "-";
+    }
+
+    function formatPercent(value) {
+      return Number.isFinite(value) ? `${Math.round(Number(value) * 100)}%` : "-";
+    }
+
+    function animate(time) {
+      if (!lastAnimationTime) {
+        lastAnimationTime = time;
+      }
+      const elapsed = time - lastAnimationTime;
+      lastAnimationTime = time;
+      if (playing) {
+        playback += elapsed * Number(speedInput.value) / 160;
+        render();
+      }
+      window.requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", render);
+    render();
+    if (!STATIC_STATE) {
+      poll();
+    }
+    window.requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
